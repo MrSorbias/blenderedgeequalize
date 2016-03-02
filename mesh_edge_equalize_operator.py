@@ -1,4 +1,5 @@
 import bpy
+import bmesh
 # noinspection PyUnresolvedReferences
 from mathutils import Vector
 
@@ -7,7 +8,7 @@ bl_info = {
     "name": "Set equal edge lengths.",
     "author": "Michal Krupa",
     "version": (1, 0, 0),
-    "blender": (2, 70, 0),
+    "blender": (2, 76, 0),
     "location": "",
     "warning": "",
     "description": "",
@@ -36,7 +37,8 @@ def set_edge_length(mesh, edge_index, edge_length=1.0):
 
 class EdgeEqualizeBase(bpy.types.Operator):
     """
-    Never register this class as an operator, it's a base class used to keep polymorphism.
+    Never register this class as an operator, it's a base class used to keep
+    polymorphism.
     """
 
     # --- This is here just to keep linter happy.
@@ -46,6 +48,22 @@ class EdgeEqualizeBase(bpy.types.Operator):
     def __init__(self):
         self.selected_edges = []
         self.edge_lengths = []
+        self.active_edge_length = None
+        
+    @staticmethod
+    def _get_active_edge_length(bm):
+        """
+        Finds the last selected edge.
+
+        @param me: bmesh.types.BMesh object to look active edge in
+        """
+        active_edge_length = None
+        bm.edges.ensure_lookup_table()
+        for elem in reversed(bm.select_history):
+            if isinstance(elem, bmesh.types.BMEdge):
+                active_edge_length = elem.calc_length()
+                break
+        return active_edge_length
 
     # noinspection PyUnusedLocal
     def invoke(self, context, event):
@@ -54,12 +72,20 @@ class EdgeEqualizeBase(bpy.types.Operator):
 
         # --- Get the mesh data
         me = ob.data
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        
         if len(me.edges) < 1:
             self.report({'ERROR'}, "This mesh has no edges!")
             return
+        
+        active_edge_length = self._get_active_edge_length(bm)
+        if active_edge_length:
+            self.active_edge_length = active_edge_length
 
         # --- gather selected edges
-        self.selected_edges = [i.index for i in bpy.context.active_object.data.edges if i.select is True]
+        edges = bpy.context.active_object.data.edges
+        self.selected_edges = [i.index for i in edges if i.select is True]
 
         # --- if none report an error and quit
         if not self.selected_edges:
@@ -73,14 +99,25 @@ class EdgeEqualizeBase(bpy.types.Operator):
             a_to_b_vec = me.vertices[vt1].co - me.vertices[vt2].co
             self.edge_lengths.append(a_to_b_vec.length)
 
-        self.scale = self._get_target_length()
+        length = self._get_target_length()
+        if length is None:
+            return {'CANCELLED'}
+        
+        self.scale = length
+
 
         return self.execute(context)
 
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        return obj and obj.type == 'MESH' and (obj.mode == 'EDIT')
+        if obj and obj.type == 'MESH' and (obj.mode == 'EDIT'):
+            mesh = bmesh.new()
+            mesh.from_mesh(obj.data)
+            # --- Check if select_mode is 'EDGE'
+            if context.scene.tool_settings.mesh_select_mode [1]:
+                return True
+        return False
 
     def do_equalize(self, ob, scale=1.0):
         me = ob.data
@@ -96,7 +133,8 @@ class EdgeEqualizeBase(bpy.types.Operator):
 
     def _get_target_length(self):
         """
-        Implement this method in your child classes to achieve different behaviours.
+        Implement this method in your child classes to achieve different
+        behaviours.
         """
         raise NotImplementedError()
 
@@ -193,23 +231,13 @@ class EdgeEqualizeActiveOperator(EdgeEqualizeBase):
 
     def _get_target_length(self):
         """
-        Calculates the biggest length of all edges.
+        Calculates the active edge length.
         """
-        active_edge = None
-        for elem in reversed(bm.select_history):
-            if isinstance(elem, bmesh.types.BMEdge):
-                print("Active edge:", elem)
-                active_edge = edge
-                break
-
-        if not active_edge:
+        if self.active_edge_length is None:
             self.report({'ERROR'}, "Failed to get the active edge!")
-            raise TypeError("Failed to get active edge")
+            return None
 
-        vt1 = me.edges[active_edge].vertices[0]
-        vt2 = me.edges[active_edge].vertices[1]
-        a_to_b_vec = me.vertices[vt1].co - me.vertices[vt2].co
-        return a_to_b_vec.length
+        return self.active_edge_length
 
     def execute(self, context):
         ob = context.object
@@ -227,12 +255,14 @@ def register():
     bpy.utils.register_class(EdgeEqualizeAverageOperator)
     bpy.utils.register_class(EdgeEqualizeShortestOperator)
     bpy.utils.register_class(EdgeEqualizeLongestOperator)
+    bpy.utils.register_class(EdgeEqualizeActiveOperator)
 
 
 def unregister():
     bpy.utils.unregister_class(EdgeEqualizeAverageOperator)
     bpy.utils.unregister_class(EdgeEqualizeShortestOperator)
     bpy.utils.unregister_class(EdgeEqualizeLongestOperator)
+    bpy.utils.unregister_class(EdgeEqualizeActiveOperator)
 
 
 if __name__ == "__main__":
