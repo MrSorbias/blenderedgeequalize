@@ -144,7 +144,7 @@ class EdgeEqualizeAverageOperator(EdgeEqualizeBase):
     bl_label = "Equalize edges length to average"
     bl_options = {'REGISTER', 'UNDO'}
 
-    scale = bpy.props.FloatProperty(name="Width", unit="LENGTH")
+    scale = bpy.props.FloatProperty(name="Length", unit="LENGTH")
 
     def _get_target_length(self):
         """
@@ -172,7 +172,7 @@ class EdgeEqualizeShortestOperator(EdgeEqualizeBase):
     bl_label = "Equalize edges length to shortest"
     bl_options = {'REGISTER', 'UNDO'}
 
-    scale = bpy.props.FloatProperty(name="Width", unit="LENGTH")
+    scale = bpy.props.FloatProperty(name="Length", unit="LENGTH")
 
     def _get_target_length(self):
         """
@@ -200,7 +200,7 @@ class EdgeEqualizeLongestOperator(EdgeEqualizeBase):
     bl_label = "Equalize edges length to longest"
     bl_options = {'REGISTER', 'UNDO'}
 
-    scale = bpy.props.FloatProperty(name="Width", unit="LENGTH")
+    scale = bpy.props.FloatProperty(name="Length", unit="LENGTH")
 
     def _get_target_length(self):
         """
@@ -227,7 +227,7 @@ class EdgeEqualizeActiveOperator(EdgeEqualizeBase):
     bl_label = "Equalize edges length to active"
     bl_options = {'REGISTER', 'UNDO'}
 
-    scale = bpy.props.FloatProperty(name="Width", unit="LENGTH")
+    scale = bpy.props.FloatProperty(name="Length", unit="LENGTH")
 
     def _get_target_length(self):
         """
